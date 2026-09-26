@@ -1,17 +1,19 @@
-@import "tailwindcss";
-
-:root {
-  color-scheme: light;
-  background: #f8fafc;
-  color: #111827;
-  font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
+@import "@cloudflare/kumo/styles/standalone";
 
 body {
   margin: 0;
+  background: var(--color-kumo-canvas);
+  color: var(--text-color-kumo-default);
+  font-family: var(--font-sans), sans-serif;
 }
 
-a {
-  color: inherit;
+.shell { min-height: 100vh; isolation: isolate; }
+.page { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 72px; }
+.stack { display: grid; gap: 24px; }
+.lede { display: grid; gap: 6px; }
+.steps { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.step { padding: 16px 20px; }
+
+@media (min-width: 860px) {
+  .steps { grid-template-columns: repeat(4, 1fr); }
 }
