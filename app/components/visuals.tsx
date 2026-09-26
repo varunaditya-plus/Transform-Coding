@@ -1,10 +1,16 @@
-import { Text } from "@cloudflare/kumo";
+import { Badge, Text } from "@cloudflare/kumo";
 
-const SWATCHES = [
-  ["swatch-kept", "Kept"],
-  ["swatch-high", "High-frequency detail"],
-  ["swatch-quiet", "Too quiet"],
-  ["swatch-mask", "Masked"],
+const SPECTRUM = [
+  ["success", "Kept"],
+  ["warning", "High-frequency detail"],
+  ["neutral", "Too quiet"],
+  ["neutral", "Masked", "legend-mask"],
+];
+
+const SEGMENT = [
+  ["neutral", "Original audio"],
+  ["success", "What remains"],
+  ["warning", "Removed"],
 ];
 
 export function Visuals({ spectrumRef, segmentRef }) {
@@ -14,21 +20,22 @@ export function Visuals({ spectrumRef, segmentRef }) {
         <div className="frame frame-spectrum">
           <canvas ref={spectrumRef} />
         </div>
-        <Text as="figcaption" variant="secondary">Frequencies in the current segment. The dashed line is the highest frequency kept.</Text>
+        <Text as="figcaption" variant="secondary">Frequencies in the current segment across the whole song. The dashed line is the highest frequency kept.</Text>
+        <div className="legend">
+          {SPECTRUM.map(([variant, label, className]) => (
+            <Badge key={label} variant={variant} appearance="dot" className={className}>{label}</Badge>
+          ))}
+        </div>
       </figure>
-      <ul className="legend">
-        {SWATCHES.map(([swatch, label]) => (
-          <li key={label}>
-            <span className="swatch-wrap"><i className={`swatch ${swatch}`} /></span>
-            <Text as="span" variant="secondary">{label}</Text>
-          </li>
-        ))}
-      </ul>
       <figure className="figure">
         <div className="frame frame-segment">
           <canvas ref={segmentRef} />
         </div>
-        <Text as="figcaption" variant="secondary">Grey is the original audio, green is what remains after compression, and orange is what the discard removed.</Text>
+        <div className="legend">
+          {SEGMENT.map(([variant, label]) => (
+            <Badge key={label} variant={variant} appearance="dot">{label}</Badge>
+          ))}
+        </div>
       </figure>
     </div>
   );

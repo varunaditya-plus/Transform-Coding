@@ -61,10 +61,7 @@ body {
 .player-head,
 .transport,
 .field-label,
-.size-row,
-.legend,
-.legend li,
-.swatch-wrap {
+.size-row {
   display: flex;
 }
 
@@ -196,41 +193,12 @@ body {
 }
 
 .legend {
+  display: flex;
   flex-wrap: wrap;
-  gap: 8px 16px;
-  padding: 0;
-  list-style: none;
+  gap: 8px;
 }
 
-.legend li {
-  align-items: flex-start;
-  gap: 6px;
-}
-
-.swatch-wrap {
-  align-items: center;
-  height: 1lh;
-}
-
-.swatch {
-  display: block;
-  width: 10px;
-  height: 10px;
-}
-
-.swatch-kept {
-  background: var(--color-kumo-success);
-}
-
-.swatch-high {
-  background: var(--color-kumo-warning);
-}
-
-.swatch-quiet {
-  background: var(--color-kumo-badge-neutral);
-}
-
-.swatch-mask {
+.legend-mask > span {
   background: var(--color-kumo-info);
 }
 
