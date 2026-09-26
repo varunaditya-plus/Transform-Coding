@@ -143,6 +143,10 @@ body {
   gap: 24px;
 }
 
+.download {
+  justify-self: start;
+}
+
 .fields {
   display: grid;
   gap: 16px;

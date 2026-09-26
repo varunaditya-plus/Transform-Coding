@@ -1,4 +1,4 @@
-import { Badge, Text } from "@cloudflare/kumo";
+import { Badge, Button, Text } from "@cloudflare/kumo";
 
 const SPECTRUM = [
   ["success", "Kept"],
@@ -13,7 +13,7 @@ const SEGMENT = [
   ["warning", "Removed"],
 ];
 
-export function Visuals({ spectrumRef, segmentRef }) {
+export function Visuals({ spectrumRef, segmentRef, canDownload, onDownload }) {
   return (
     <div className="visuals">
       <figure className="figure">
@@ -37,6 +37,9 @@ export function Visuals({ spectrumRef, segmentRef }) {
           ))}
         </div>
       </figure>
+      <div className="download">
+        <Button type="button" variant="secondary" disabled={!canDownload} onClick={onDownload}>Download compressed audio</Button>
+      </div>
     </div>
   );
 }

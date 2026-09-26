@@ -125,6 +125,49 @@ function enginePosition(engine) {
   return Math.min(engine.original.duration, Math.max(0, time));
 }
 
+// 16-bit PCM WAV. The compressed audio is still samples, just with frequencies removed.
+function wavBlob(channels, sampleRate) {
+  const numChannels = channels.length;
+  const frames = channels[0].length;
+  const dataSize = frames * numChannels * 2;
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buffer);
+  const write = (offset, text) => {
+    for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i));
+  };
+  write(0, "RIFF");
+  view.setUint32(4, 36 + dataSize, true);
+  write(8, "WAVE");
+  write(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * numChannels * 2, true);
+  view.setUint16(32, numChannels * 2, true);
+  view.setUint16(34, 16, true);
+  write(36, "data");
+  view.setUint32(40, dataSize, true);
+  const pcm = new Int16Array(buffer, 44);
+  let index = 0;
+  for (let i = 0; i < frames; i++) {
+    for (let c = 0; c < numChannels; c++) {
+      const sample = Math.max(-1, Math.min(1, channels[c][i] || 0));
+      pcm[index++] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+    }
+  }
+  return new Blob([buffer], { type: "audio/wav" });
+}
+
+function downloadBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 // Wrap channel arrays in an AudioBuffer the context can play. getChannelData() returns that buffer's channel, and set() copies into it.
 function makeBuffer(ctx, channels, sampleRate) {
   const audio = ctx.createBuffer(channels.length, channels[0].length, sampleRate);
@@ -161,6 +204,7 @@ export default function Home() {
   const [display, setDisplay] = useState(null);
   const [keptShare, setKeptShare] = useState(1); // Share of bins kept by the last full pass. 1 until that pass finishes.
   const [busy, setBusy] = useState(false);
+  const [hasCompressed, setHasCompressed] = useState(false);
 
   // The audio graph and playback bookkeeping. Kept off React state so the animation loop can read it without rendering.
   const engineRef = useRef(null);
@@ -277,6 +321,10 @@ export default function Home() {
     shownRef.current = snap;
     setDisplay(snap.stats);
 
+    const key = settingsKey(settings);
+    const ready = engine.compressedKey === key && engine.compressed;
+    setHasCompressed(!!ready);
+
     if (settings.bypass) {
       jobRef.current += 1;
       setBusy(false);
@@ -295,9 +343,9 @@ export default function Home() {
       engine.coder.setParams(toParams(settings));
     }
 
-    const key = settingsKey(settings);
     if (engine.compressedKey === key) {
       setBusy(false);
+      setHasCompressed(true);
       return;
     }
 
@@ -313,7 +361,9 @@ export default function Home() {
         try {
           const result = await compress(channels, engine.original.sampleRate, settings.fftSize, toParams(settings), () => job !== jobRef.current || engineRef.current !== engine);
           if (job !== jobRef.current || engineRef.current !== engine || result.stats.bins === 0) return;
+          engine.compressed = result.channels;
           engine.compressedKey = key;
+          setHasCompressed(true);
           setKeptShare(result.stats.kept / result.stats.bins);
           setBusy(false);
         } catch (caught) {
@@ -528,6 +578,13 @@ export default function Home() {
   controls.current.toggle = toggle;
   controls.current.seek = seek;
 
+  function downloadCompressed() {
+    const engine = engineRef.current;
+    if (!engine?.compressed) return;
+    const label = (meta?.sourceLabel || "audio").replace(/\.[^.]+$/, "");
+    downloadBlob(wavBlob(engine.compressed, engine.original.sampleRate), `${label}-compressed.wav`);
+  }
+
   function patch(partial) {
     setSettings((current) => ({ ...current, ...partial }));
   }
@@ -556,7 +613,9 @@ export default function Home() {
       engine.original = audioBuffer;
       engine.coder = null;
       engine.coderSize = 0;
+      engine.compressed = null;
       engine.compressedKey = "";
+      setHasCompressed(false);
       engine.offset = 0;
       peaksRef.current = computePeaks(audioBuffer, 700);
       const initial = readFrame(audioBuffer, 0, settingsRef.current);
@@ -621,7 +680,7 @@ export default function Home() {
               <LayerCard className="step"><Text>Hear the lossily compressed audio as you change the parameters</Text></LayerCard>
             </div>
             <section className="stage">
-              <Visuals spectrumRef={spectrumRef} segmentRef={segmentRef} />
+              <Visuals spectrumRef={spectrumRef} segmentRef={segmentRef} canDownload={hasCompressed} onDownload={downloadCompressed} />
               <Controls settings={settings} nyquist={nyquist} cutoff={cutoff} segmentMs={segmentMs} audioLength={audioLength} sampleRate={meta.sampleRate} busy={busy} keptShare={keptShare} estimate={estimate} times={times} flacBytes={meta.flacBytes} pcmBytes={meta.pcmBytes} sourceLabel={meta.sourceLabel} onPatch={patch} formatHz={formatHz}/>
             </section>
           </>
