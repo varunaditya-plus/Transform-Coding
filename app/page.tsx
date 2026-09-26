@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LayerCard, Loader, Text } from "@cloudflare/kumo";
+import { paintOverview } from "../lib/paint";
+import { Player } from "./components/player";
 
 let flacPromise = null;
 let flacProgress = 0;
@@ -52,6 +54,31 @@ async function readFlac(onProgress) {
   return { data: data.buffer, bytes: received };
 }
 
+// Min and max of each slice of the song, averaged across channels.
+function computePeaks(buffer, buckets) {
+  const channels = [];
+  for (let c = 0; c < buffer.numberOfChannels; c++) channels.push(buffer.getChannelData(c));
+  const mins = new Float32Array(buckets);
+  const maxs = new Float32Array(buckets);
+  const block = Math.max(1, Math.floor(buffer.length / buckets));
+  for (let i = 0; i < buckets; i++) {
+    let min = 0;
+    let max = 0;
+    const start = i * block;
+    const end = Math.min(buffer.length, start + block);
+    for (let j = start; j < end; j++) {
+      let value = 0;
+      for (let c = 0; c < channels.length; c++) value += channels[c][j];
+      value /= channels.length;
+      if (value < min) min = value;
+      if (value > max) max = value;
+    }
+    mins[i] = min;
+    maxs[i] = max;
+  }
+  return { mins, maxs };
+}
+
 // s as m:ss.
 function formatTime(seconds) {
   if (!Number.isFinite(seconds) || seconds < 0) seconds = 0;
@@ -64,10 +91,19 @@ function formatTime(seconds) {
 export default function Home() {
   const [meta, setMeta] = useState(null);
   const [error, setError] = useState(null);
+  const [playing, setPlaying] = useState(false);
+  const audioRef = useRef(null);
+  const peaksRef = useRef(null);
+  const timeRef = useRef(null);
+  const overviewRef = useRef(null);
+  const seekSyncRef = useRef(null);
+  const scrubbingRef = useRef(false);
+  const wasPlayingRef = useRef(false);
 
   useEffect(() => {
     let dead = false;
     let context = null;
+    let objectUrl = null;
     void (async () => {
       try {
         const { data, bytes } = await loadFlac();
@@ -75,15 +111,68 @@ export default function Home() {
         context = new AudioContext();
         const decoded = await context.decodeAudioData(data.slice(0));
         if (dead) return;
+        peaksRef.current = computePeaks(decoded, 700);
+        objectUrl = URL.createObjectURL(new Blob([data], { type: "audio/flac" }));
+        const audio = new Audio(objectUrl);
+        audio.onended = () => setPlaying(false);
+        audioRef.current = audio;
         setMeta({ duration: decoded.duration, sampleRate: decoded.sampleRate, channels: decoded.numberOfChannels, flacBytes: bytes });
       } catch (caught) {
-        if (!dead) setError(caught instanceof Error ? caught.message : "Could not load the audio.");
+        if (!dead) setError(caught instanceof Error ? caught.message : "Could not start the audio.");
       } finally {
         if (context) void context.close();
       }
     })();
-    return () => { dead = true; };
+    return () => {
+      dead = true;
+      audioRef.current?.pause();
+      audioRef.current = null;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
   }, []);
+
+  useEffect(() => {
+    if (!meta) return;
+    let frame = 0;
+    const loop = () => {
+      const position = audioRef.current?.currentTime || 0;
+      if (timeRef.current) timeRef.current.textContent = formatTime(position);
+      if (!scrubbingRef.current) seekSyncRef.current?.(position);
+      const peaks = peaksRef.current;
+      if (peaks && overviewRef.current) paintOverview(overviewRef.current, peaks.mins, peaks.maxs, position, meta.duration);
+      frame = requestAnimationFrame(loop);
+    };
+    frame = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(frame);
+  }, [meta]);
+
+  function toggle() {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (audio.paused) {
+      void audio.play().then(() => setPlaying(true)).catch((caught) => setError(caught.message));
+    } else {
+      audio.pause();
+      setPlaying(false);
+    }
+  }
+
+  function seek(time) {
+    if (audioRef.current) audioRef.current.currentTime = time;
+  }
+
+  function beginScrub() {
+    const audio = audioRef.current;
+    scrubbingRef.current = true;
+    wasPlayingRef.current = !!audio && !audio.paused;
+    if (audio) audio.pause();
+    setPlaying(false);
+  }
+
+  function endScrub() {
+    scrubbingRef.current = false;
+    if (wasPlayingRef.current) toggle();
+  }
 
   return (
     <main className="page">
@@ -95,11 +184,7 @@ export default function Home() {
         </div>
         {error && <Text variant="error">{error}</Text>}
         {!meta && !error && <Loader size="lg" />}
-        {meta && (
-          <LayerCard className="step">
-            <Text>Loaded {formatTime(meta.duration)} of audio at {meta.sampleRate} Hz across {meta.channels} channel(s). The FLAC file is {(meta.flacBytes / 1_000_000).toFixed(1)} MB.</Text>
-          </LayerCard>
-        )}
+        {meta && <Player meta={meta} playing={playing} onToggle={toggle} timeRef={timeRef} overviewRef={overviewRef} seekSyncRef={seekSyncRef} scrubbingRef={scrubbingRef} onSeek={seek} onScrubStart={beginScrub} onScrubEnd={endScrub} formatTime={formatTime} />}
             <div className="steps">
               <LayerCard className="step"><Text>turn the original data into segments (1024 samples)</Text></LayerCard>
               <LayerCard className="step"><Text>transform each segment into the frequencies it contains</Text></LayerCard>

@@ -17,3 +17,16 @@ body {
 @media (min-width: 860px) {
   .steps { grid-template-columns: repeat(4, 1fr); }
 }
+
+.player { padding-top: 16px; }
+.transport { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+.nums { font-variant-numeric: tabular-nums; }
+.frame { overflow: hidden; border-radius: 8px; background: var(--color-kumo-recessed); box-shadow: 0 0 0 1px var(--color-kumo-hairline); }
+.frame-overview { position: relative; height: 72px; margin-top: 14px; }
+.frame canvas { display: block; width: 100%; height: 100%; }
+.seek { position: absolute; inset: 0; }
+.seek-control, .seek-track { height: 100%; }
+.seek-control { display: flex; align-items: center; width: 100%; touch-action: none; }
+.seek-track { position: relative; width: 100%; }
+.seek-track, .seek-indicator { background: transparent; }
+.seek-thumb { width: 16px; height: 16px; border-radius: 999px; outline: none; opacity: 0; }
