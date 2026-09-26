@@ -1,7 +1,7 @@
 import { Button, ButtonGroup, Loader, Text } from "@cloudflare/kumo";
 import { RangeSlider } from "./range-slider";
 
-export function Controls({ settings, nyquist, cutoff, segmentMs, sampleRate, busy, keptShare, estimate, times, flacBytes, pcmBytes, onPatch, formatHz }) {
+export function Controls({ settings, nyquist, cutoff, segmentMs, audioLength, sampleRate, busy, keptShare, estimate, times, flacBytes, pcmBytes, onPatch, formatHz }) {
   const sizes = [512, 1024, 2048, 4096];
 
   return (
@@ -13,7 +13,7 @@ export function Controls({ settings, nyquist, cutoff, segmentMs, sampleRate, bus
             <Button type="button" key={size} variant={settings.fftSize === size ? "primary" : "secondary"} onClick={() => onPatch({ fftSize: size })}>{size}</Button>
           ))}
         </ButtonGroup>
-        <Text variant="secondary">{settings.fftSize} samples / {sampleRate} Hz × 1000 = {segmentMs.toFixed(segmentMs >= 10 ? 0 : 1)}ms.</Text>
+        <Text variant="secondary">To find the length of each segment: {settings.fftSize} samples / {sampleRate} Hz × 1000 = {segmentMs.toFixed(segmentMs >= 10 ? 0 : 1)}ms.<br />For the number of segments: {audioLength.toFixed(0)}ms song duration / {segmentMs.toFixed(segmentMs >= 10 ? 0 : 1)}ms segment length = {Math.round(audioLength / segmentMs)} segments.</Text>
       </div>
 
       <div className="fields">

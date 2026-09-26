@@ -28,7 +28,7 @@ export function Visuals({ spectrumRef, segmentRef }) {
         <div className="frame frame-segment">
           <canvas ref={segmentRef} />
         </div>
-        <Text as="figcaption" variant="secondary">One segment. Grey is the original, green is what remains, and orange is what the discard removed.</Text>
+        <Text as="figcaption" variant="secondary">Grey is the original audio, green is what remains after compression, and orange is what the discard removed.</Text>
       </figure>
     </div>
   );

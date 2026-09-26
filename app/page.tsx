@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { LayerCard, Loader, Text } from "@cloudflare/kumo";
+import { LayerCard, Loader, Text, Link } from "@cloudflare/kumo";
 import { analyseFrame, compress } from "../lib/transform-coding";
 import { paintOverview, paintSegment, paintSpectrum } from "../lib/paint";
 import { Controls } from "./components/controls";
@@ -463,6 +463,7 @@ export default function Home() {
   const estimate = meta ? meta.pcmBytes * keptShare : 0;
   const times = keptShare > 0.001 ? 1 / keptShare : 0;
   const segmentMs = meta ? (settings.fftSize / meta.sampleRate) * 1000 : 0;
+  const audioLength = meta ? meta.duration * 1000 : 0;
 
   return (
     <main className="page">
@@ -470,7 +471,8 @@ export default function Home() {
         <div className="lede">
           <Text as="h1" variant="heading" size="lg">Transform coding</Text>
           <Text variant="secondary">Transform coding is where data is turned into a different representation (depending on the kind of file), and then different methods are used to reduce file size. This demo shows how transform coding works in audio files. First, the encoder turns the audio into short segments, and transforms the frequencies each segment contains. It them removes frequencies the listener cannot hear (frequencies too quiet or overlapped by other frequencies). This is called masking. Discarding the inaudible content using transform coding is why audio files around 20-30MB can be shrunk to just 2-3, while sounding nearly identical.</Text>
-          <Text variant="secondary">The transform itself is a fast Fourier transform from a JS library (not really relevant for IB syllabus). These controls are the lossy step: what gets thrown away. If nothing gets discarded, the sound will matches the original sample. This demo uses a lossless FLAC file of the song "Miracle Aligner" by The Last Shadow Puppets to show the true extent of the compression.</Text>
+          <Text variant="secondary">The transform this app uses is just a fast Fourier transform from the FFT.js library (not really relevant for IB syllabus). These controls are the lossy step: what gets thrown away. If nothing gets discarded, the sound will matches the original sample.</Text>
+          <Text variant="secondary">This demo uses a lossless FLAC file of the song "Miracle Aligner" by The Last Shadow Puppets to show the true extent of the compression, but you can upload your own audio file to see how it works. You can find high quality .FLACs on <Link href="https://monochrome.st/" target="_blank">Monochrome.st</Link>. I'd recommend using a FLAC as they are lossless and the compression will sound much better.</Text>
         </div>
 
         {error && <Text variant="error">{error}</Text>}
@@ -481,14 +483,14 @@ export default function Home() {
           <>
             <Player meta={meta} playing={playing} busy={busy} bypass={settings.bypass} onPatch={patch} onToggle={toggle} timeRef={timeRef} overviewRef={overviewRef} seekSyncRef={seekSyncRef} scrubbingRef={scrubbingRef} onSeek={seek} onScrubStart={beginScrub} onScrubEnd={endScrub} formatTime={formatTime} />
             <div className="steps">
-              <LayerCard className="step"><Text>turn the original data into segments ({settings.fftSize} samples)</Text></LayerCard>
-              <LayerCard className="step"><Text>transform each segment into the frequencies it contains</Text></LayerCard>
-              <LayerCard className="step"><Text>discard frequencies listeners cannot hear: either too quiet or drowned out by larger freqs (this is called masking)</Text></LayerCard>
-              <LayerCard className="step"><Text>hear the lossily compressed audio as you change the parameters</Text></LayerCard>
+              <LayerCard className="step"><Text>Turn the original data into segments ({settings.fftSize} samples)</Text></LayerCard>
+              <LayerCard className="step"><Text>Transform each segment into the frequencies it contains</Text></LayerCard>
+              <LayerCard className="step"><Text>Discard frequencies listeners cannot hear: either too quiet or drowned out by larger frequencies (this is called masking)</Text></LayerCard>
+              <LayerCard className="step"><Text>Hear the lossily compressed audio as you change the parameters</Text></LayerCard>
             </div>
             <section className="stage">
               <Visuals spectrumRef={spectrumRef} segmentRef={segmentRef} />
-              <Controls settings={settings} nyquist={nyquist} cutoff={cutoff} segmentMs={segmentMs} sampleRate={meta.sampleRate} busy={busy} keptShare={keptShare} estimate={estimate} times={times} flacBytes={meta.flacBytes} pcmBytes={meta.pcmBytes} onPatch={patch} formatHz={formatHz}/>
+              <Controls settings={settings} nyquist={nyquist} cutoff={cutoff} segmentMs={segmentMs} audioLength={audioLength} sampleRate={meta.sampleRate} busy={busy} keptShare={keptShare} estimate={estimate} times={times} flacBytes={meta.flacBytes} pcmBytes={meta.pcmBytes} onPatch={patch} formatHz={formatHz}/>
             </section>
           </>
         )}
