@@ -5,3 +5,5 @@ next-env.d.ts
 /dist/
 .vinext/
 .wrangler/
+*.DS_Store
+*.tsbuildinfo
