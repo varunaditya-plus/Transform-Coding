@@ -11,6 +11,12 @@
     "not_found_handling": "none",
     "binding": "ASSETS"
   },
+  "routes": [
+    {
+      "pattern": "transformcoding.vipe.dev",
+      "custom_domain": true
+    }
+  ],
   "images": {
     "binding": "IMAGES"
   }

@@ -41,7 +41,7 @@ function loadFlac() {
 
 // Stream the FLAC so progress can be reported, then join the chunks into a buffer. (for ref: https://developer.mozilla.org/en-US/docs/Web/API/Streams_API/Using_readable_streams)
 async function readFlac(onProgress) {
-  const response = await fetch("/song.flac");
+  const response = await fetch("https://varunaditya.space/transformcoding/song.flac");
   if (!response.ok || !response.body) {
     throw new Error("Could not load the recording.");
   }
@@ -626,6 +626,8 @@ export default function Home() {
             </section>
           </>
         )}
+
+        <span className="footer">made by <Link href="https://varunaditya.xyz" variant="plain" target="_blank">varunaditya.xyz</Link></span>
       </div>
     </main>
   );

@@ -272,3 +272,10 @@ body {
     grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.75fr);
   }
 }
+
+.footer {
+  position: fixed;
+  bottom: 1rem;
+  right: 1.25rem;
+  font-size: 0.875rem;
+}
