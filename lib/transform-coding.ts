@@ -101,6 +101,22 @@ function processSegment(ws, frame, sampleRate, params) {
     }
   }
 
+  if (!params.bypass && params.mask > 0) {
+    // One bin is binHz wide, so this is the 180hz neighbourhood in bins.
+    const radius = Math.max(1, Math.round(180 / binHz));
+    for (let k = 0; k < binCount; k++) {
+      if (reasons[k] !== KEPT) continue;
+      let loud = 0;
+      const from = Math.max(0, k - radius);
+      const to = Math.min(nyquistBin, k + radius);
+      for (let j = from; j <= to; j++) {
+        // High bins are already being deleted, so they do not count as maskers.
+        if (j !== k && reasons[j] !== HIGH && magnitudes[j] > loud) loud = magnitudes[j];
+      }
+      if (magnitudes[k] < params.mask * loud) reasons[k] = MASKED;
+    }
+  }
+
   const frameStats = emptyStats();
   frameStats.bins = binCount;
   for (let k = 0; k < binCount; k++) {
