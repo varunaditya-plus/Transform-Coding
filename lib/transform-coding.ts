@@ -46,6 +46,53 @@ function addStats(total, frame) {
   total.masked += frame.masked;
 }
 
+// Transform-code every channel, then overlap-add the segments into a recording. Deleting bins inside processSegment is the lossy step. With nothing discarded, that sum is the original samples.
+export async function compress(channels, sampleRate, segmentLength, params, shouldStop) {
+  const ws = workspace(segmentLength);
+  const n = ws.n;
+  // Hop of N/2 is the 50% overlap the Hann window above was built for.
+  const hop = n >> 1;
+  const outputs = channels.map((channel) => new Float32Array(channel.length));
+  const stats = emptyStats();
+  let segments = 0;
+
+  for (let c = 0; c < channels.length; c++) {
+    const input = channels[c];
+    const output = outputs[c];
+
+    // 1. Cut the sound into short segments.
+    for (let start = 0; start < input.length; start += hop) {
+      const frame = ws.frame;
+      let peak = 0;
+      for (let i = 0; i < n; i++) {
+        const sample = start + i < input.length ? input[start + i] : 0;
+        frame[i] = sample;
+        peak = Math.max(peak, Math.abs(sample));
+      }
+
+      const frameStats = processSegment(ws, frame, sampleRate, params);
+      // Channel 0 only. The near-silent intro is left out so it does not dominate the kept/discarded percentage.
+      if (c === 0 && peak >= 0.015) addStats(stats, frameStats);
+
+      // Deleted components are already gone. This add is only how overlapping segments are joined back into a playable recording.
+      for (let i = 0; i < n && start + i < output.length; i++) {
+        output[start + i] += ws.timeOut[i];
+      }
+
+      segments++;
+      // Give main thread back so the loader can paint. Empty stats object tells the caller this pass was cancelled.
+      if (segments % 200 === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        if (shouldStop?.()) return { channels: outputs, stats: emptyStats() };
+      }
+    }
+  }
+
+  // Every segment was under the silence floor. Keep the ratio defined.
+  if (stats.bins === 0) stats.bins = stats.kept = 1;
+  return { channels: outputs, stats };
+}
+
 // The same three steps, on the one segment under the playhead. The returned arrays are copies because the workspace buffers are reused.
 export function analyseFrame(frame, sampleRate, params) {
   let ws = previewPool.get(frame.length);
