@@ -128,6 +128,55 @@ export function paintSpectrum(canvas, frame, cutoffHz, sampleRate, font) {
   }
 }
 
+// Draw one segment in time. Grey is the windowed original, green is what the inverse transform kept, orange is the difference (what was removed).
+export function paintSegment(canvas, frame) {
+  const view = context(canvas);
+  if (!view) return;
+  const { g, width, height } = view;
+  const paint = colors();
+  g.clearRect(0, 0, width, height);
+
+  const pad = 8;
+  const plotWidth = width - pad * 2;
+  const mid = height / 2;
+  // Floor so a near-silent segment does not stretch to fill the canvas.
+  let peak = 0.02;
+  for (let i = 0; i < frame.windowed.length; i++) {
+    peak = Math.max(peak, Math.abs(frame.windowed[i]), Math.abs(frame.output[i] ?? 0));
+  }
+
+  g.strokeStyle = paint.line;
+  g.beginPath();
+  g.moveTo(pad, mid);
+  g.lineTo(width - pad, mid);
+  g.stroke();
+
+  // Map sample index onto an x pixel and scale the sample into the plot.
+  const draw = (data, color, widthPx, alpha) => {
+    g.globalAlpha = alpha;
+    g.strokeStyle = color;
+    g.lineWidth = widthPx;
+    g.beginPath();
+    for (let x = 0; x < plotWidth; x++) {
+      const index = Math.min(data.length - 1, Math.floor((x / plotWidth) * data.length));
+      const y = mid - (data[index] / peak) * (height / 2 - 10);
+      if (x === 0) g.moveTo(pad, y);
+      else g.lineTo(pad + x, y);
+    }
+    g.stroke();
+  };
+
+  const removed = new Float32Array(frame.windowed.length);
+  for (let i = 0; i < removed.length; i++) {
+    removed[i] = frame.windowed[i] - (frame.output[i] ?? 0);
+  }
+
+  draw(frame.windowed, paint.original, 1.35, 0.7);
+  draw(removed, paint.high, 1.15, 0.85);
+  draw(frame.output, paint.kept, 1.7, 1);
+  g.globalAlpha = 1;
+}
+
 // Draw the whole song as min-to-max bars. Bars behind the playhead are green.
 export function paintOverview(canvas, mins, maxs, position, duration) {
   const view = context(canvas);
