@@ -28,6 +28,11 @@ function colors() {
   return palette;
 }
 
+// The canvases cache resolved colors. Drop them when light and dark mode switch.
+export function resetColors() {
+  palette = null;
+}
+
 // Match the canvas backing store to the screen, then draw in CSS pixels. The ratio is capped at 2 so a 3x display does not triple the pixel work.
 function context(canvas) {
   const rect = canvas.getBoundingClientRect();

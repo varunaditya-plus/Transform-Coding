@@ -31,6 +31,13 @@ body {
   gap: 6px;
 }
 
+.title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
 .steps {
   display: grid;
   grid-template-columns: 1fr 1fr;

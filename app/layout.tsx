@@ -10,7 +10,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" data-mode="dark" className={sans.variable}>
+    <html lang="en" data-mode="dark" className={sans.variable} style={{ colorScheme: "dark" }}>
       <body>
         <div className="shell">{children}</div>
       </body>

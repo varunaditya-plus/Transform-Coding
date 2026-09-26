@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { LayerCard, Loader, Text, Link } from "@cloudflare/kumo";
-import { analyseFrame, compress } from "../lib/transform-coding";
-import { paintOverview, paintSegment, paintSpectrum } from "../lib/paint";
+import { Button, LayerCard, Loader, Text, Link } from "@cloudflare/kumo";
+import { MoonIcon, SunIcon } from "@phosphor-icons/react";
+import { analyseFrame, compress, createCoder } from "../lib/transform-coding";
+import { paintOverview, paintSegment, paintSpectrum, resetColors } from "../lib/paint";
 import { Controls } from "./components/controls";
 import { Player } from "./components/player";
 import { Visuals } from "./components/visuals";
@@ -114,6 +115,12 @@ function settingsKey(settings) {
 function enginePosition(engine) {
   if (!engine) return 0;
   if (!engine.playing) return engine.offset;
+  if (engine.streaming) {
+    const rate = engine.original.sampleRate;
+    const ahead = engine.queueEndTime - engine.ctx.currentTime;
+    const seconds = (engine.queueEndSample - ahead * rate) / rate;
+    return Math.min(engine.original.duration, Math.max(0, seconds));
+  }
   const time = engine.offset + (engine.ctx.currentTime - engine.startedAt);
   return Math.min(engine.original.duration, Math.max(0, time));
 }
@@ -147,6 +154,7 @@ function formatHz(hz, nyquist) {
 
 export default function Home() {
   const [settings, setSettings] = useState(INITIAL);
+  const [mode, setMode] = useState("dark");
   const [meta, setMeta] = useState(null);
   const [error, setError] = useState(null);
   const [playing, setPlaying] = useState(false);
@@ -261,7 +269,7 @@ export default function Home() {
     };
   }, []);
 
-  // Recompress when the lossy settings change. If original samples are playing, js play decoded buffer. The timer waits for the slider to settle, and a newer job id throws away a pass that the settings have already moved past.
+  // The sound is coded a hop ahead of the playhead, so slider moves are heard on the next segment. This full pass only updates the size numbers.
   useEffect(() => {
     const engine = engineRef.current;
     if (!engine || !meta) return;
@@ -273,20 +281,23 @@ export default function Home() {
       jobRef.current += 1;
       setBusy(false);
       setKeptShare(1);
-      if (engine.playing) {
+      if (engine.playing && engine.playMode !== "original") {
         engine.offset = enginePosition(engine);
         playRef.current();
       }
       return;
     }
 
+    if (engine.playing && (engine.playMode !== "stream" || engine.coderSize !== settings.fftSize)) {
+      engine.offset = enginePosition(engine);
+      playRef.current();
+    } else if (engine.coder && engine.coderSize === settings.fftSize) {
+      engine.coder.setParams(toParams(settings));
+    }
+
     const key = settingsKey(settings);
-    if (engine.compressed && engine.compressedKey === key) {
+    if (engine.compressedKey === key) {
       setBusy(false);
-      if (engine.playing || resumeRef.current) {
-        engine.offset = enginePosition(engine);
-        playRef.current();
-      }
       return;
     }
 
@@ -302,14 +313,9 @@ export default function Home() {
         try {
           const result = await compress(channels, engine.original.sampleRate, settings.fftSize, toParams(settings), () => job !== jobRef.current || engineRef.current !== engine);
           if (job !== jobRef.current || engineRef.current !== engine || result.stats.bins === 0) return;
-          const wasPlaying = engine.playing || resumeRef.current;
-          const position = enginePosition(engine);
-          engine.compressed = makeBuffer(engine.ctx, result.channels, engine.original.sampleRate);
           engine.compressedKey = key;
-          engine.offset = position;
           setKeptShare(result.stats.kept / result.stats.bins);
           setBusy(false);
-          if (wasPlaying) playRef.current();
         } catch (caught) {
           if (job !== jobRef.current || engineRef.current !== engine) return;
           setBusy(false);
@@ -340,6 +346,14 @@ export default function Home() {
       if (snap && spectrumRef.current) paintSpectrum(spectrumRef.current, snap, Math.min(settingsRef.current.cutoffHz, meta.sampleRate / 2), meta.sampleRate, font);
       if (snap && segmentRef.current) paintSegment(segmentRef.current, snap);
       if (engine?.playing) {
+        if (engine.streaming) {
+          pump(engine);
+          if (engine.queueEndSample >= engine.original.length && engine.queueEndTime <= engine.ctx.currentTime) {
+            engine.offset = 0;
+            halt();
+            setPlaying(false);
+          }
+        }
         const now = performance.now();
         if (now - lastStatRef.current > 120) {
           lastStatRef.current = now;
@@ -353,47 +367,83 @@ export default function Home() {
     return () => cancelAnimationFrame(frame);
   }, [meta]);
 
-  // Original samples, or the latest compressed buffer.
-  function playbackBuffer(engine) {
-    if (settingsRef.current.bypass) return engine.original;
-    return engine.compressed;
-  }
-
-  // Stop the current source.
+  // Stop whatever is currently sounding.
   function halt() {
     const engine = engineRef.current;
     if (!engine) return;
     engine.token += 1;
     engine.playing = false;
+    engine.streaming = false;
     const source = engine.source;
     engine.source = null;
-    if (!source) return;
-    try {
-      source.stop();
-    } catch {}
+    const queue = engine.queue;
+    engine.queue = [];
+    if (source) {
+      try { source.stop(); } catch {}
+    }
+    if (queue) {
+      for (let i = 0; i < queue.length; i++) {
+        try { queue[i].stop(); } catch {}
+      }
+    }
   }
 
-  // Play from engine.offset. If the compressed buffer is not ready, start when it is.
-  function start() {
-    const engine = engineRef.current;
-    if (!engine) return;
-    const buffer = playbackBuffer(engine);
-    if (!buffer) {
-      resumeRef.current = true;
-      return;
+  // Keep a short queue of coded hops so playback never waits on the rest of the file.
+  function pump(engine) {
+    if (!engine.streaming || !engine.playing || !engine.coder) return;
+    const rate = engine.original.sampleRate;
+    const hop = engine.coderSize >> 1;
+    const hopSeconds = hop / rate;
+    const ahead = Math.min(0.08, Math.max(hopSeconds * 2, 0.03));
+    const ctx = engine.ctx;
+    let guard = 0;
+    while (engine.queueEndTime < ctx.currentTime + ahead && guard++ < 8) {
+      if (engine.coder.finished || engine.queueEndSample >= engine.original.length) break;
+      const count = hop;
+      const data = engine.coder.read(count);
+      if (!data) break;
+      const blockStart = engine.coder.position - count;
+      let start = 0;
+      if (engine.skip) {
+        start = Math.min(engine.skip, count);
+        engine.skip -= start;
+      }
+      let end = count;
+      if (blockStart + end > engine.original.length) end = Math.max(start, engine.original.length - blockStart);
+      const usable = end - start;
+      engine.queueEndSample = blockStart + end;
+      if (usable <= 0) break;
+      const sliced = [];
+      for (let c = 0; c < data.length; c++) sliced.push(data[c].subarray(start, end));
+      const buffer = makeBuffer(ctx, sliced, rate);
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      src.connect(engine.gain);
+      let when = engine.queueEndTime;
+      if (when < ctx.currentTime) when = ctx.currentTime;
+      src.start(when);
+      const token = engine.token;
+      src.onended = () => {
+        if (engine.token !== token) return;
+        const index = engine.queue.indexOf(src);
+        if (index >= 0) engine.queue.splice(index, 1);
+      };
+      engine.queue.push(src);
+      engine.queueEndTime = when + buffer.duration;
     }
-    resumeRef.current = false;
-    void engine.ctx.resume();
-    halt();
+  }
 
+  function playOriginal(engine) {
+    const buffer = engine.original;
     if (engine.offset >= buffer.duration - 0.05) engine.offset = 0;
     const source = engine.ctx.createBufferSource();
     source.buffer = buffer;
     source.connect(engine.gain);
-
     source.start(0, engine.offset);
     engine.startedAt = engine.ctx.currentTime;
     engine.source = source;
+    engine.streaming = false;
+    engine.playMode = "original";
     engine.playing = true;
     const token = engine.token;
     source.onended = () => {
@@ -403,6 +453,44 @@ export default function Home() {
       engine.offset = 0;
       setPlaying(false);
     };
+    setPlaying(true);
+  }
+
+  // Play from engine.offset. Compressed playback is coded on the way out.
+  function start() {
+    const engine = engineRef.current;
+    if (!engine) return;
+    const settings = settingsRef.current;
+    let offset = engine.offset;
+    if (offset >= engine.original.duration - 0.05) offset = 0;
+    void engine.ctx.resume();
+    halt();
+    engine.offset = offset;
+    resumeRef.current = false;
+    if (settings.bypass) {
+      playOriginal(engine);
+      return;
+    }
+    const original = engine.original;
+    const channels = [];
+    for (let c = 0; c < original.numberOfChannels; c++) channels.push(original.getChannelData(c));
+    if (!engine.coder || engine.coderSize !== settings.fftSize) {
+      engine.coder = createCoder(settings.fftSize, original.sampleRate);
+      engine.coderSize = settings.fftSize;
+    }
+    engine.coder.setSource(channels);
+    engine.coder.setParams(toParams(settings));
+    let sample = Math.floor(offset * original.sampleRate);
+    if (sample >= original.length) sample = 0;
+    const aligned = engine.coder.seek(sample);
+    engine.queue = [];
+    engine.skip = sample - aligned;
+    engine.queueEndSample = aligned;
+    engine.queueEndTime = engine.ctx.currentTime;
+    engine.streaming = true;
+    engine.playMode = "stream";
+    engine.playing = true;
+    pump(engine);
     setPlaying(true);
   }
 
@@ -444,6 +532,14 @@ export default function Home() {
     setSettings((current) => ({ ...current, ...partial }));
   }
 
+  function toggleMode() {
+    const next = mode === "dark" ? "light" : "dark";
+    setMode(next);
+    document.documentElement.dataset.mode = next;
+    document.documentElement.style.colorScheme = next;
+    resetColors();
+  }
+
   async function upload(file) {
     const engine = engineRef.current;
     if (!engine || !file) return;
@@ -458,7 +554,8 @@ export default function Home() {
       const audioBuffer = await engine.ctx.decodeAudioData(data.slice(0));
       if (engineRef.current !== engine) return;
       engine.original = audioBuffer;
-      engine.compressed = null;
+      engine.coder = null;
+      engine.coderSize = 0;
       engine.compressedKey = "";
       engine.offset = 0;
       peaksRef.current = computePeaks(audioBuffer, 700);
@@ -501,7 +598,10 @@ export default function Home() {
     <main className="page">
       <div className="stack">
         <div className="lede">
-          <Text as="h1" variant="heading" size="lg">Transform coding</Text>
+          <div className="title-row">
+            <Text as="h1" variant="heading" size="lg">Transform coding</Text>
+            <Button type="button" shape="circle" variant="secondary" onClick={toggleMode}>{mode === "dark" ? <SunIcon /> : <MoonIcon />}</Button>
+          </div>
           <Text variant="secondary">Transform coding is where data is turned into a different representation (depending on the kind of file), and then different methods are used to reduce file size. This demo shows how transform coding works in audio files. First, the encoder turns the audio into short segments, and transforms the frequencies each segment contains. It them removes frequencies the listener cannot hear (frequencies too quiet or overlapped by other frequencies). This is called masking. Discarding the inaudible content using transform coding is why audio files around 20-30MB can be shrunk to just 2-3, while sounding nearly identical.</Text>
           <Text variant="secondary">The transform this app uses is just a fast Fourier transform from the FFT.js library (not really relevant for IB syllabus). These controls are the lossy step: what gets thrown away. If nothing gets discarded, the sound will matches the original sample.</Text>
           <Text variant="secondary">This demo uses a lossless FLAC file of the song "Miracle Aligner" by The Last Shadow Puppets to show the true extent of the compression, but you can upload your own audio file (any format) to see how it works. You can find high quality .FLACs on <Link href="https://monochrome.st/" target="_blank">Monochrome.st</Link>. I'd recommend using a FLAC as they are lossless and results will be cooler.</Text>
