@@ -87,10 +87,13 @@ function processSegment(ws, frame, sampleRate, params) {
 
   // 3. Remove what a listener cannot hear: sounds too quiet to register, and quieter sounds drowned out by a louder nearby frequency (masking). High-frequency detail goes too. The peak for "too quiet" is taken only from bins that are still kept.
   for (let k = 0; k < binCount; k++) {
-    reasons[k] = KEPT;
-    if (magnitudes[k] > peakInRange) peakInRange = magnitudes[k];
+    if (!params.bypass && k * binHz > params.cutoffHz) {
+      reasons[k] = HIGH;
+    } else {
+      reasons[k] = KEPT;
+      if (magnitudes[k] > peakInRange) peakInRange = magnitudes[k];
+    }
   }
-
   const frameStats = emptyStats();
   frameStats.bins = binCount;
   for (let k = 0; k < binCount; k++) {
