@@ -94,6 +94,13 @@ function processSegment(ws, frame, sampleRate, params) {
       if (magnitudes[k] > peakInRange) peakInRange = magnitudes[k];
     }
   }
+  if (!params.bypass && params.quiet > 0 && peakInRange > 0) {
+    const limit = params.quiet * peakInRange;
+    for (let k = 0; k < binCount; k++) {
+      if (reasons[k] === KEPT && magnitudes[k] < limit) reasons[k] = QUIET;
+    }
+  }
+
   const frameStats = emptyStats();
   frameStats.bins = binCount;
   for (let k = 0; k < binCount; k++) {
