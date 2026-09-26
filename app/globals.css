@@ -7,26 +7,274 @@ body {
   font-family: var(--font-sans), sans-serif;
 }
 
-.shell { min-height: 100vh; isolation: isolate; }
-.page { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 72px; }
-.stack { display: grid; gap: 24px; }
-.lede { display: grid; gap: 6px; }
-.steps { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.step { padding: 16px 20px; }
-
-@media (min-width: 860px) {
-  .steps { grid-template-columns: repeat(4, 1fr); }
+.shell {
+  min-height: 100vh;
+  isolation: isolate;
 }
 
-.player { padding-top: 16px; }
-.transport { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
-.nums { font-variant-numeric: tabular-nums; }
-.frame { overflow: hidden; border-radius: 8px; background: var(--color-kumo-recessed); box-shadow: 0 0 0 1px var(--color-kumo-hairline); }
-.frame-overview { position: relative; height: 72px; margin-top: 14px; }
-.frame canvas { display: block; width: 100%; height: 100%; }
-.seek { position: absolute; inset: 0; }
-.seek-control, .seek-track { height: 100%; }
-.seek-control { display: flex; align-items: center; width: 100%; touch-action: none; }
-.seek-track { position: relative; width: 100%; }
-.seek-track, .seek-indicator { background: transparent; }
-.seek-thumb { width: 16px; height: 16px; border-radius: 999px; outline: none; opacity: 0; }
+.page {
+  width: min(1120px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 28px 0 72px;
+}
+
+.stack {
+  display: grid;
+  gap: 24px;
+}
+
+.lede,
+.group,
+.figure,
+.size-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.step {
+  padding: 16px 20px;
+}
+
+.stage {
+  display: grid;
+  align-items: start;
+  gap: 36px;
+}
+
+.player {
+  padding-top: 16px;
+}
+
+.player-head,
+.transport,
+.field-label,
+.size-row,
+.legend,
+.legend li,
+.swatch-wrap {
+  display: flex;
+}
+
+.player-head {
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.transport {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
+.playback {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.lengths {
+  display: flex;
+  width: 100%;
+}
+
+.lengths > button {
+  flex: 1;
+  justify-content: center;
+}
+
+.nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.frame {
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--color-kumo-recessed);
+  box-shadow: 0 0 0 1px var(--color-kumo-hairline);
+}
+
+.frame-overview {
+  position: relative;
+  height: 72px;
+  margin-top: 14px;
+}
+
+.frame-spectrum {
+  height: 250px;
+}
+
+.frame-segment {
+  height: 140px;
+}
+
+.frame canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.visuals,
+.controls {
+  display: grid;
+  gap: 24px;
+}
+
+.fields {
+  display: grid;
+  gap: 16px;
+}
+
+.field-label,
+.size-row {
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.figure,
+.size dl,
+.size-value,
+.size-values {
+  margin: 0;
+}
+
+.size {
+  display: grid;
+  gap: 6px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-kumo-hairline);
+}
+
+.size-row {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-kumo-hairline);
+}
+
+.size-value,
+.size-values {
+  text-align: right;
+}
+
+.size-values {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+
+.legend {
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.legend li {
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.swatch-wrap {
+  align-items: center;
+  height: 1lh;
+}
+
+.swatch {
+  display: block;
+  width: 10px;
+  height: 10px;
+}
+
+.swatch-kept {
+  background: var(--color-kumo-success);
+}
+
+.swatch-high {
+  background: var(--color-kumo-warning);
+}
+
+.swatch-quiet {
+  background: var(--color-kumo-badge-neutral);
+}
+
+.swatch-mask {
+  background: var(--color-kumo-info);
+}
+
+.slider-control,
+.seek-control {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  touch-action: none;
+}
+
+.slider-control {
+  padding: 4px 0;
+}
+
+.slider-track,
+.seek-track {
+  position: relative;
+  width: 100%;
+}
+
+.slider-track {
+  height: 2px;
+  border-radius: 999px;
+  background: var(--color-kumo-fill);
+}
+
+.slider-indicator {
+  border-radius: 999px;
+  background: var(--color-kumo-brand);
+}
+
+.slider-thumb,
+.seek-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  outline: none;
+}
+
+.slider-thumb {
+  background: var(--color-kumo-contrast);
+  box-shadow: 0 0 0 2px var(--color-kumo-brand);
+}
+
+.seek {
+  position: absolute;
+  inset: 0;
+}
+
+.seek-control,
+.seek-track {
+  height: 100%;
+}
+
+.seek-track,
+.seek-indicator {
+  background: transparent;
+}
+
+.seek-thumb {
+  opacity: 0;
+}
+
+@media (min-width: 860px) {
+  .steps {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .stage {
+    grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.75fr);
+  }
+}
