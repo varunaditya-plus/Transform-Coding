@@ -1,7 +1,7 @@
 import { Button, ButtonGroup, Loader, Text } from "@cloudflare/kumo";
 import { RangeSlider } from "./range-slider";
 
-export function Controls({ settings, nyquist, cutoff, segmentMs, audioLength, sampleRate, busy, keptShare, estimate, times, flacBytes, pcmBytes, onPatch, formatHz }) {
+export function Controls({ settings, nyquist, cutoff, segmentMs, audioLength, sampleRate, busy, keptShare, estimate, times, flacBytes, pcmBytes, sourceLabel, onPatch, formatHz }) {
   const sizes = [512, 1024, 2048, 4096];
 
   return (
@@ -48,7 +48,7 @@ export function Controls({ settings, nyquist, cutoff, segmentMs, audioLength, sa
         <Text as="h3" variant="heading">Size</Text>
         <dl>
           <div className="size-row">
-            <dt><Text as="span" variant="secondary">The original FLAC (lossless)</Text></dt>
+            <dt><Text as="span" variant="secondary">{sourceLabel || "The original FLAC (lossless)"}</Text></dt>
             <dd className="size-value"><Text as="span" variant="mono">{(flacBytes / 1_000_000).toFixed(1)} MB</Text></dd>
           </div>
           <div className="size-row">

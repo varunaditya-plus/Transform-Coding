@@ -76,8 +76,20 @@ body {
 
 .playback {
   display: flex;
+  align-items: center;
   gap: 8px;
   margin-left: auto;
+}
+
+.playback-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 0;
+  background: var(--color-kumo-hairline);
+}
+
+.file-input {
+  display: none;
 }
 
 .lengths {
@@ -137,6 +149,13 @@ body {
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
+}
+
+.size-row dt {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .figure,
